@@ -26,7 +26,24 @@ async function run() {
     const db = client.db("smart_db");
     const productsCollection = db.collection("products");
     const bidsCollection = db.collection("bids");
+    const usersCollection = db.collection("users");
 
+    // USERS API
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      const email = user.email;
+      const query = { email: email };
+      const existingUser = usersCollection.findOne(query);
+
+      if (existingUser) {
+        res.send({ message: "User already exist. no need to add" });
+      } else {
+        const result = await usersCollection.insertOne(user);
+        res.send(result);
+      }
+    });
+
+    // PRODUCTS API
     app.get("/products", async (req, res) => {
       //     const projectsFields = { title: 1, price_min: 1, price_max: 1, image: 1}
       //   const cursor = productsCollection.find().sort({price_min: 1}).skip(1).limit(5).project(projectsFields);
@@ -39,6 +56,15 @@ async function run() {
       }
 
       const cursor = productsCollection.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    app.get("/latest-products", async (req, res) => {
+      const cursor = productsCollection
+        .find()
+        .sort({ created_at: -1 })
+        .limit(6);
       const result = await cursor.toArray();
       res.send(result);
     });
@@ -92,6 +118,26 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/products/bids/:productId", async (req, res) => {
+      const productId = req.params.productId;
+      const query = { product: productId };
+      const cursor = bidsCollection.find(query).sort({ bid_price: -1 });
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    app.get('/bids', async(req, res) =>{
+
+      const query = {};
+      if(query.email){
+        query.buyer_email = email
+      }
+      const cursor = bidsCollection.find(query);
+      const result = cursor.toArray();
+      res.send(result);
+    })
+
+
     app.post("/bids", async (req, res) => {
       const newBid = req.body;
       const result = await bidsCollection.insertOne(newBid);
@@ -105,12 +151,12 @@ async function run() {
       res.send(result);
     });
 
-    app.get('/bids/:id', async(req, res) =>{
-        const id = req.params.id;
-        const query = { _id: new ObjectId(id)}
-        const result = bidsCollection.findOne(query);
-        res.send(result);
-    })
+    app.get("/bids/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = bidsCollection.findOne(query);
+      res.send(result);
+    });
 
     await client.db("admin").command({ ping: 1 });
     console.log(
